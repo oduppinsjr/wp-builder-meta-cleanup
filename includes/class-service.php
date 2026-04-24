@@ -257,11 +257,15 @@ final class Builder_Meta_Cleanup_Service {
 		if ( '' === $like ) {
 			return 0;
 		}
-		$sql = $wpdb->prepare(
-			"SELECT COUNT(*) FROM {$wpdb->postmeta} WHERE meta_key LIKE %s",
-			$like
+		// No WordPress API exists to COUNT(*) postmeta rows by meta_key LIKE; required for admin counts.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->postmeta} WHERE meta_key LIKE %s",
+				$like
+			)
 		);
-		return (int) $wpdb->get_var( $sql );
+		// phpcs:enable
 	}
 
 	public static function delete_meta_like( string $like ): int {
@@ -271,8 +275,9 @@ final class Builder_Meta_Cleanup_Service {
 		}
 		$total = 0;
 		$batch = absint( self::BATCH );
+		// Batched DELETE by meta_key pattern; delete_post_meta() has no bulk-LIKE equivalent.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		do {
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$deleted = $wpdb->query(
 				$wpdb->prepare(
 					"DELETE FROM {$wpdb->postmeta} WHERE meta_key LIKE %s LIMIT %d",
@@ -285,6 +290,7 @@ final class Builder_Meta_Cleanup_Service {
 			}
 			$total += (int) $deleted;
 		} while ( $deleted > 0 );
+		// phpcs:enable
 
 		return $total;
 	}
@@ -294,11 +300,15 @@ final class Builder_Meta_Cleanup_Service {
 	 */
 	public static function option_row_info( string $option_name ): array {
 		global $wpdb;
-		$sql = $wpdb->prepare(
-			"SELECT LENGTH(option_value) FROM {$wpdb->options} WHERE option_name = %s LIMIT 1",
-			$option_name
+		// LENGTH() avoids loading large serialized options into PHP; get_option() would not be appropriate here.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$len = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT LENGTH(option_value) FROM {$wpdb->options} WHERE option_name = %s LIMIT 1",
+				$option_name
+			)
 		);
-		$len = $wpdb->get_var( $sql );
+		// phpcs:enable
 		if ( null === $len ) {
 			return array( 'exists' => false, 'bytes' => 0 );
 		}
@@ -306,16 +316,6 @@ final class Builder_Meta_Cleanup_Service {
 	}
 
 	public static function delete_option_by_name( string $option_name ): bool {
-		global $wpdb;
-		$exists = null !== $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT option_id FROM {$wpdb->options} WHERE option_name = %s LIMIT 1",
-				$option_name
-			)
-		);
-		if ( ! $exists ) {
-			return false;
-		}
 		return delete_option( $option_name );
 	}
 

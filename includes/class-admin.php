@@ -56,6 +56,16 @@ final class Builder_Meta_Cleanup_Admin {
 		if ( isset( $_POST['bmc_action'], $_POST['_wpnonce'] ) && wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['_wpnonce'] ) ), Builder_Meta_Cleanup_Service::NONCE ) ) {
 			$action = sanitize_key( wp_unslash( $_POST['bmc_action'] ) );
 
+			if ( 'save_update_settings' === $action ) {
+				$src = sanitize_key( wp_unslash( $_POST['update_source'] ?? 'github' ) );
+				if ( ! in_array( $src, array( 'github', 'wordpress', 'both' ), true ) ) {
+					$src = 'github';
+				}
+				update_option( Builder_Meta_Cleanup_Updater::OPTION_SOURCE, $src );
+				Builder_Meta_Cleanup_Updater::clear_cache();
+				$messages[] = __( 'Update check settings saved. The remote version cache was cleared so the next check fetches fresh data.', 'builder-meta-cleanup' );
+			}
+
 			if ( 'clean_meta' === $action && ! empty( $_POST['meta_targets'] ) && is_array( $_POST['meta_targets'] ) ) {
 				$posted = array_map( 'sanitize_key', wp_unslash( $_POST['meta_targets'] ) );
 				$posted = array_values( array_intersect( $posted, array_keys( $targets ) ) );
@@ -278,6 +288,73 @@ final class Builder_Meta_Cleanup_Admin {
 				);
 				?>
 			</form>
+
+			<hr style="margin:2.5em 0" />
+
+			<h2><?php esc_html_e( 'Plugin updates', 'builder-meta-cleanup' ); ?></h2>
+			<p class="description" style="max-width:900px">
+				<?php esc_html_e( 'This plugin is not distributed only through WordPress.org. The plugin header sets Update URI to GitHub so core does not treat another plugin with the same folder name as this one. Choose where to look when WordPress checks for updates (Plugins screen, Dashboard → Updates, or WP-Cron).', 'builder-meta-cleanup' ); ?>
+			</p>
+			<?php
+			$upd_src = Builder_Meta_Cleanup_Updater::get_update_source();
+			$gh_repo = Builder_Meta_Cleanup_Updater::get_github_repo();
+			$org_slug = Builder_Meta_Cleanup_Updater::get_wporg_slug();
+			$gh_info  = Builder_Meta_Cleanup_Updater::get_github_payload( false );
+			$wp_info  = Builder_Meta_Cleanup_Updater::get_wporg_payload( false );
+			?>
+			<form method="post" style="max-width:720px;margin-bottom:1.5em">
+				<?php wp_nonce_field( Builder_Meta_Cleanup_Service::NONCE ); ?>
+				<input type="hidden" name="bmc_action" value="save_update_settings" />
+				<fieldset>
+					<p><strong><?php esc_html_e( 'Update source', 'builder-meta-cleanup' ); ?></strong></p>
+					<label style="display:block;margin:6px 0">
+						<input type="radio" name="update_source" value="github" <?php checked( $upd_src, 'github' ); ?> />
+						<?php esc_html_e( 'GitHub releases only (recommended for this repo)', 'builder-meta-cleanup' ); ?>
+					</label>
+					<label style="display:block;margin:6px 0">
+						<input type="radio" name="update_source" value="wordpress" <?php checked( $upd_src, 'wordpress' ); ?> />
+						<?php esc_html_e( 'WordPress.org only (slug below; no update if the plugin is not listed there)', 'builder-meta-cleanup' ); ?>
+					</label>
+					<label style="display:block;margin:6px 0">
+						<input type="radio" name="update_source" value="both" <?php checked( $upd_src, 'both' ); ?> />
+						<?php esc_html_e( 'Both: compare versions and offer the newer release', 'builder-meta-cleanup' ); ?>
+					</label>
+				</fieldset>
+				<?php submit_button( __( 'Save update settings', 'builder-meta-cleanup' ), 'secondary', 'submit_updates', false ); ?>
+			</form>
+			<p class="description" style="max-width:900px">
+				<?php
+				printf(
+					/* translators: 1: owner/repo, 2: plugin slug */
+					esc_html__( 'GitHub API: %1$s · WordPress.org slug (filterable): %2$s', 'builder-meta-cleanup' ),
+					'<code>' . esc_html( $gh_repo ) . '</code>',
+					'<code>' . esc_html( $org_slug ) . '</code>'
+				);
+				?>
+			</p>
+			<table class="widefat striped" style="max-width:720px;margin-top:12px">
+				<thead>
+					<tr>
+						<th><?php esc_html_e( 'Source', 'builder-meta-cleanup' ); ?></th>
+						<th><?php esc_html_e( 'Latest seen', 'builder-meta-cleanup' ); ?></th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td><?php esc_html_e( 'GitHub', 'builder-meta-cleanup' ); ?></td>
+						<td><?php echo $gh_info ? '<code>' . esc_html( $gh_info['version'] ) . '</code>' : esc_html__( '— (not fetched yet or API error)', 'builder-meta-cleanup' ); ?></td>
+					</tr>
+					<tr>
+						<td><?php esc_html_e( 'WordPress.org', 'builder-meta-cleanup' ); ?></td>
+						<td><?php echo $wp_info ? '<code>' . esc_html( $wp_info['version'] ) . '</code>' : esc_html__( '— (not listed or not fetched)', 'builder-meta-cleanup' ); ?></td>
+					</tr>
+					<tr>
+						<td><?php esc_html_e( 'Installed', 'builder-meta-cleanup' ); ?></td>
+						<td><code><?php echo esc_html( BUILDER_META_CLEANUP_VERSION ); ?></code></td>
+					</tr>
+				</tbody>
+			</table>
+			<p class="description"><?php esc_html_e( 'For reliable one-click updates from GitHub, attach a release .zip whose internal folder is named builder-meta-cleanup, or rely on the built-in rename step after extraction.', 'builder-meta-cleanup' ); ?></p>
 
 			<hr style="margin:2.5em 0" />
 
