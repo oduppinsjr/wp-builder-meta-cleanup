@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/oduppinsjr/wp-builder-meta-cleanup/security
+    about: Please report security issues privately — see SECURITY.md
+  - name: Support & questions
+    url: https://github.com/oduppinsjr/wp-builder-meta-cleanup/blob/main/SUPPORT.md
+    about: Where to ask questions and how support works

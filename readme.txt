@@ -4,7 +4,7 @@ Donate link: https://duppinstech.com
 Tags: elementor, divi, database, postmeta, cleanup
 Requires at least: 6.0
 Tested up to: 6.7
-Stable tag: 2.0.1
+Stable tag: 2.1.0
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -13,7 +13,7 @@ Detect major page builders, show install/active state, and remove orphaned postm
 
 == Description ==
 
-Builder Meta Cleanup helps after you migrate away from a page builder or theme framework. It lists common stacks (Elementor, Divi, Beaver Builder, Bricks, SeedProd, Hello Elementor, BeTheme, Astra), shows whether each is installed and active, and lets you delete matching **postmeta** (and a small allowlist of **wp_options**) only when that stack is **not** active—so you do not wipe data for a builder you still use.
+Builder Meta Cleanup helps after you migrate away from a page builder or theme framework. It lists common stacks (Elementor, Divi, Beaver Builder, Bricks, SeedProd, Hello Elementor, BeTheme, Astra, Fusion / Avada, plus Elementor companion plugins such as Premium Addons, Essential Addons, and Ultimate Addons), shows whether each is installed and active, and lets you delete matching **postmeta**, selected **wp_options** rows, or **wp_options** rows matching safe prefixes (for example PA_, FS_) only when that stack is **not** active—so you do not wipe data for a builder or addon you still use.
 
 * **Tools screen** — row counts, badges, and checkboxes for safe cleanup.
 * **WP-CLI** — `wp builder-meta counts`, `delete`, `option-counts`, `options-delete`.
@@ -42,10 +42,19 @@ So you cannot delete meta that the live theme or plugin still needs.
 
 == Changelog ==
 
+= 2.1.0 =
+* Fusion / Avada Builder: postmeta `_fusion%` and pattern-based wp_options `FS_%`.
+* Elementor companion plugins (separate from core Elementor): Premium Addons (`PA_%`), Essential Addons (`eael_%`), Ultimate Addons (`uael_%`) with install/active checks.
+* Tools screen: “Page builders” vs “Companion plugins”, plus pattern-based options cleanup.
+* WP-CLI: `options-like-delete`.
+
 = 2.0.1 =
 * Maintenance and documentation updates for plugin directory checks.
 
 == Upgrade Notice ==
+
+= 2.1.0 =
+Fusion / Avada support, Elementor addon plugins, and LIKE-based wp_options cleanup.
 
 = 2.0.1 =
 Maintenance release.

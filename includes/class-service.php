@@ -15,10 +15,10 @@ final class Builder_Meta_Cleanup_Service {
 	public const NONCE = 'builder_meta_cleanup_action';
 
 	/**
-	 * Target definitions: meta SQL patterns and optional exact wp_options keys.
+	 * Target definitions: meta SQL patterns, optional exact wp_options keys, and optional wp_options LIKE patterns.
 	 * Cleanup is only offered when the stack is not active (see is_target_active).
 	 *
-	 * @return array<string, array{label: string, meta: array<string, array{label: string, like_prefix: string}>, options?: array<string, string>}>
+	 * @return array<string, array<string, mixed>>
 	 */
 	public static function get_targets(): array {
 		$targets = array(
@@ -126,6 +126,55 @@ final class Builder_Meta_Cleanup_Service {
 					'theme_mods_astra' => __( 'Astra — Customizer (theme_mods_astra)', 'builder-meta-cleanup' ),
 				),
 			),
+			'fusion'                   => array(
+				'label'    => __( 'Fusion / Avada Builder', 'builder-meta-cleanup' ),
+				'category' => 'builder',
+				'meta'     => array(
+					'fusion_root' => array(
+						'label'       => __( 'meta_key LIKE _fusion%', 'builder-meta-cleanup' ),
+						'like_prefix' => '_fusion',
+					),
+				),
+				'options_like' => array(
+					'fs_options' => array(
+						'label'       => __( 'wp_options.option_name LIKE FS_% (Fusion option fragments)', 'builder-meta-cleanup' ),
+						'like_prefix' => 'FS_',
+					),
+				),
+			),
+			'premium_addons_elementor' => array(
+				'label'    => __( 'Premium Addons for Elementor', 'builder-meta-cleanup' ),
+				'category' => 'addon',
+				'meta'     => array(),
+				'options_like' => array(
+					'pa_options' => array(
+						'label'       => __( 'wp_options.option_name LIKE PA_% (dynamic assets / caches)', 'builder-meta-cleanup' ),
+						'like_prefix' => 'PA_',
+					),
+				),
+			),
+			'essential_addons_elementor' => array(
+				'label'    => __( 'Essential Addons for Elementor', 'builder-meta-cleanup' ),
+				'category' => 'addon',
+				'meta'     => array(),
+				'options_like' => array(
+					'eael_options' => array(
+						'label'       => __( 'wp_options.option_name LIKE eael_%', 'builder-meta-cleanup' ),
+						'like_prefix' => 'eael_',
+					),
+				),
+			),
+			'ultimate_addons_elementor' => array(
+				'label'    => __( 'Ultimate Addons for Elementor', 'builder-meta-cleanup' ),
+				'category' => 'addon',
+				'meta'     => array(),
+				'options_like' => array(
+					'uael_options' => array(
+						'label'       => __( 'wp_options.option_name LIKE uael_%', 'builder-meta-cleanup' ),
+						'like_prefix' => 'uael_',
+					),
+				),
+			),
 		);
 
 		/**
@@ -140,6 +189,39 @@ final class Builder_Meta_Cleanup_Service {
 		if ( ! function_exists( 'is_plugin_active' ) ) {
 			require_once ABSPATH . 'wp-admin/includes/plugin.php';
 		}
+	}
+
+	/**
+	 * @param list<string> $relative_paths Paths relative to WP_PLUGIN_DIR.
+	 */
+	private static function is_any_plugin_active( array $relative_paths ): bool {
+		self::load_plugin_functions();
+		foreach ( $relative_paths as $rel ) {
+			$rel = (string) $rel;
+			if ( '' === $rel ) {
+				continue;
+			}
+			if ( file_exists( WP_PLUGIN_DIR . '/' . $rel ) && is_plugin_active( $rel ) ) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * @param list<string> $relative_paths Paths relative to WP_PLUGIN_DIR.
+	 */
+	private static function is_any_plugin_present( array $relative_paths ): bool {
+		foreach ( $relative_paths as $rel ) {
+			$rel = (string) $rel;
+			if ( '' === $rel ) {
+				continue;
+			}
+			if ( file_exists( WP_PLUGIN_DIR . '/' . $rel ) ) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	public static function is_target_active( string $target_id ): bool {
@@ -194,6 +276,44 @@ final class Builder_Meta_Cleanup_Service {
 				$s = strtolower( (string) get_stylesheet() );
 				return ( 'astra' === $t || 'astra' === $s );
 
+			case 'fusion':
+				$t = strtolower( (string) get_template() );
+				$s = strtolower( (string) get_stylesheet() );
+				if ( 'avada' === $t || 'avada' === $s ) {
+					return true;
+				}
+				return self::is_any_plugin_active(
+					array(
+						'fusion-core/fusion-core.php',
+						'fusion-builder/fusion-builder.php',
+					)
+				);
+
+			case 'premium_addons_elementor':
+				return self::is_any_plugin_active(
+					array(
+						'premium-addons-for-elementor/premium-addons-for-elementor.php',
+						'premium-addons-pro/premium-addons-pro-for-elementor.php',
+					)
+				);
+
+			case 'essential_addons_elementor':
+				return self::is_any_plugin_active(
+					array(
+						'essential-addons-for-elementor/essential-addons-for-elementor.php',
+						'essential-addons-elementor-pro/essential-addons-elementor-pro.php',
+						'essential-addons-for-elementor-pro/essential-addons-for-elementor-pro.php',
+					)
+				);
+
+			case 'ultimate_addons_elementor':
+				return self::is_any_plugin_active(
+					array(
+						'ultimate-elementor/ultimate-elementor.php',
+						'ultimate-elementor-pro/ultimate-elementor-pro.php',
+					)
+				);
+
 			default:
 				return (bool) apply_filters( 'builder_meta_cleanup_is_target_active', false, $target_id );
 		}
@@ -241,6 +361,42 @@ final class Builder_Meta_Cleanup_Service {
 
 			case 'astra':
 				return wp_get_theme( 'astra' )->exists();
+
+			case 'fusion':
+				if ( wp_get_theme( 'Avada' )->exists() ) {
+					return true;
+				}
+				return self::is_any_plugin_present(
+					array(
+						'fusion-core/fusion-core.php',
+						'fusion-builder/fusion-builder.php',
+					)
+				);
+
+			case 'premium_addons_elementor':
+				return self::is_any_plugin_present(
+					array(
+						'premium-addons-for-elementor/premium-addons-for-elementor.php',
+						'premium-addons-pro/premium-addons-pro-for-elementor.php',
+					)
+				);
+
+			case 'essential_addons_elementor':
+				return self::is_any_plugin_present(
+					array(
+						'essential-addons-for-elementor/essential-addons-for-elementor.php',
+						'essential-addons-elementor-pro/essential-addons-elementor-pro.php',
+						'essential-addons-for-elementor-pro/essential-addons-for-elementor-pro.php',
+					)
+				);
+
+			case 'ultimate_addons_elementor':
+				return self::is_any_plugin_present(
+					array(
+						'ultimate-elementor/ultimate-elementor.php',
+						'ultimate-elementor-pro/ultimate-elementor-pro.php',
+					)
+				);
 
 			default:
 				return (bool) apply_filters( 'builder_meta_cleanup_is_target_installed', false, $target_id );
@@ -293,6 +449,87 @@ final class Builder_Meta_Cleanup_Service {
 		// phpcs:enable
 
 		return $total;
+	}
+
+	public static function count_options_like( string $like ): int {
+		global $wpdb;
+		if ( '' === $like ) {
+			return 0;
+		}
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->options} WHERE option_name LIKE %s",
+				$like
+			)
+		);
+		// phpcs:enable
+	}
+
+	public static function delete_options_like( string $like ): int {
+		global $wpdb;
+		if ( '' === $like ) {
+			return 0;
+		}
+		$total = 0;
+		$batch = absint( self::BATCH );
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		do {
+			$deleted = $wpdb->query(
+				$wpdb->prepare(
+					"DELETE FROM {$wpdb->options} WHERE option_name LIKE %s LIMIT %d",
+					$like,
+					$batch
+				)
+			);
+			if ( false === $deleted ) {
+				break;
+			}
+			$total += (int) $deleted;
+		} while ( $deleted > 0 );
+		// phpcs:enable
+
+		return $total;
+	}
+
+	/**
+	 * @return string|null SQL LIKE pattern including trailing %, or null if unknown ids.
+	 */
+	public static function options_like_pattern_for( string $target_id, string $pattern_id ): ?string {
+		$targets = self::get_targets();
+		if ( ! isset( $targets[ $target_id ]['options_like'][ $pattern_id ]['like_prefix'] ) ) {
+			return null;
+		}
+		$pfx = (string) $targets[ $target_id ]['options_like'][ $pattern_id ]['like_prefix'];
+		return self::meta_like( $pfx );
+	}
+
+	public static function count_target_options_like_block( string $target_id, string $pattern_id ): int {
+		$like = self::options_like_pattern_for( $target_id, $pattern_id );
+		if ( null === $like ) {
+			return 0;
+		}
+		return self::count_options_like( $like );
+	}
+
+	public static function delete_target_options_like_block( string $target_id, string $pattern_id ): int {
+		$like = self::options_like_pattern_for( $target_id, $pattern_id );
+		if ( null === $like ) {
+			return 0;
+		}
+		return self::delete_options_like( $like );
+	}
+
+	public static function count_target_options_like_total( string $target_id ): int {
+		$targets = self::get_targets();
+		if ( empty( $targets[ $target_id ]['options_like'] ) ) {
+			return 0;
+		}
+		$sum = 0;
+		foreach ( array_keys( $targets[ $target_id ]['options_like'] ) as $pid ) {
+			$sum += self::count_target_options_like_block( $target_id, (string) $pid );
+		}
+		return $sum;
 	}
 
 	/**

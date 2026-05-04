@@ -1,0 +1,40 @@
+name: Bug report
+description: Report incorrect behavior, PHP errors, or UI/WP-CLI issues
+labels: ['bug']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a problem. Please avoid posting secrets, credentials, or full database dumps.
+  - type: input
+    id: version
+    attributes:
+      label: Plugin version
+      placeholder: e.g. 2.1.0
+    validations:
+      required: true
+  - type: input
+    id: wp
+    attributes:
+      label: WordPress version
+    validations:
+      required: false
+  - type: input
+    id: php
+    attributes:
+      label: PHP version
+    validations:
+      required: false
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Expected vs actual behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+    validations:
+      required: true
