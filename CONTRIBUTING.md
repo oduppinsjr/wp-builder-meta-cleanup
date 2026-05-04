@@ -20,6 +20,7 @@ Thank you for helping improve **Builder Meta Cleanup**. This document describes 
 
 ## Coding expectations
 
+- **Registry:** New stacks should set `ui_tab` to `theme`, `page_builder`, or `plugin`. Plugins detected only by main file can list paths in `plugin_paths`. Bulk presets for plugins-with-cruft live in `includes/data-plugin-cruft-targets.php` (merged automatically).
 - **WordPress:** Target PHP version and WordPress version headers in `builder-meta-cleanup.php` must remain satisfied.
 - **Database:** Prefer batched deletes as implemented in `Builder_Meta_Cleanup_Service`; avoid loading large option blobs into PHP when counting bytes (follow existing `LENGTH(option_value)` patterns).
 - **Internationalization:** User-visible strings in PHP should use translation functions with the `builder-meta-cleanup` text domain, consistent with existing files.

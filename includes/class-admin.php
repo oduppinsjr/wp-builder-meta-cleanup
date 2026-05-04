@@ -13,6 +13,11 @@ final class Builder_Meta_Cleanup_Admin {
 
 	private const SLUG = 'builder-meta-cleanup';
 
+	private const TAB_THEME   = 'theme';
+	private const TAB_BUILDER = 'page_builder';
+	private const TAB_PLUGIN  = 'plugin';
+	private const TAB_ABOUT   = 'about';
+
 	public static function init(): void {
 		add_action( 'admin_menu', array( __CLASS__, 'register_menu' ) );
 	}
@@ -46,21 +51,34 @@ final class Builder_Meta_Cleanup_Admin {
 	}
 
 	/**
-	 * @param array<string, array<string, mixed>> $targets
-	 * @return array{0: array<string, array<string, mixed>>, 1: array<string, array<string, mixed>>}
+	 * @param array<string, array<string, mixed>> $def Target definition.
 	 */
-	private static function split_targets_by_category( array $targets ): array {
-		$builders = array();
-		$addons   = array();
+	private static function target_ui_tab( array $def ): string {
+		return isset( $def['ui_tab'] ) ? (string) $def['ui_tab'] : 'page_builder';
+	}
+
+	/**
+	 * @param array<string, array<string, mixed>> $targets
+	 * @return array<string, array<string, mixed>>
+	 */
+	private static function targets_for_ui_tab( array $targets, string $tab ): array {
+		$out = array();
 		foreach ( $targets as $tid => $def ) {
-			$cat = isset( $def['category'] ) ? (string) $def['category'] : 'builder';
-			if ( 'addon' === $cat ) {
-				$addons[ $tid ] = $def;
-			} else {
-				$builders[ $tid ] = $def;
+			if ( self::target_ui_tab( $def ) === $tab ) {
+				$out[ $tid ] = $def;
 			}
 		}
-		return array( $builders, $addons );
+		return $out;
+	}
+
+	private static function cleanup_tab_url( string $tab ): string {
+		return add_query_arg(
+			array(
+				'page'    => self::SLUG,
+				'bmc_tab' => $tab,
+			),
+			admin_url( 'tools.php' )
+		);
 	}
 
 	/**
@@ -207,234 +225,31 @@ final class Builder_Meta_Cleanup_Admin {
 			<?php endif; ?>
 
 			<?php
-			list( $bmc_builders, $bmc_addons ) = self::split_targets_by_category( $targets );
-			$bmc_stack_sections                  = array(
+			$bmc_tab = isset( $_GET['bmc_tab'] ) ? sanitize_key( wp_unslash( $_GET['bmc_tab'] ) ) : self::TAB_THEME;
+			if ( ! in_array( $bmc_tab, array( self::TAB_THEME, self::TAB_BUILDER, self::TAB_PLUGIN, self::TAB_ABOUT ), true ) ) {
+				$bmc_tab = self::TAB_THEME;
+			}
+			$tab_slice     = self::targets_for_ui_tab( $targets, $bmc_tab );
+			$form_slug     = str_replace( '_', '-', $bmc_tab );
+			$tab_form_base = admin_url( 'tools.php' );
+			$tab_action    = add_query_arg(
 				array(
-					'title'   => __( 'Page builders', 'builder-meta-cleanup' ),
-					'targets' => $bmc_builders,
+					'page'    => self::SLUG,
+					'bmc_tab' => $bmc_tab,
 				),
-				array(
-					'title'   => __( 'Companion plugins', 'builder-meta-cleanup' ),
-					'targets' => $bmc_addons,
-				),
+				$tab_form_base
 			);
 			?>
-			<h2><?php esc_html_e( 'Detected stacks', 'builder-meta-cleanup' ); ?></h2>
-			<p class="description"><?php esc_html_e( '“Installed” means the theme folder or main plugin file is present. “Active” means that stack is currently powering the editor or theme. Cleanup is only available when Active = No.', 'builder-meta-cleanup' ); ?></p>
-			<?php
-			foreach ( $bmc_stack_sections as $bmc_sec ) :
-				if ( empty( $bmc_sec['targets'] ) ) {
-					continue;
-				}
-				?>
-			<h2><?php echo esc_html( $bmc_sec['title'] ); ?></h2>
+			<h2 class="nav-tab-wrapper bmc-nav-tabs" style="margin:1em 0 0;padding-top:0;border-bottom:1px solid #c3c4c7;">
+				<a href="<?php echo esc_url( self::cleanup_tab_url( self::TAB_THEME ) ); ?>" class="nav-tab <?php echo self::TAB_THEME === $bmc_tab ? 'nav-tab-active' : ''; ?>"><?php esc_html_e( 'Themes & frameworks', 'builder-meta-cleanup' ); ?></a>
+				<a href="<?php echo esc_url( self::cleanup_tab_url( self::TAB_BUILDER ) ); ?>" class="nav-tab <?php echo self::TAB_BUILDER === $bmc_tab ? 'nav-tab-active' : ''; ?>"><?php esc_html_e( 'Page builders', 'builder-meta-cleanup' ); ?></a>
+				<a href="<?php echo esc_url( self::cleanup_tab_url( self::TAB_PLUGIN ) ); ?>" class="nav-tab <?php echo self::TAB_PLUGIN === $bmc_tab ? 'nav-tab-active' : ''; ?>"><?php esc_html_e( 'Plugins', 'builder-meta-cleanup' ); ?></a>
+				<a href="<?php echo esc_url( self::cleanup_tab_url( self::TAB_ABOUT ) ); ?>" class="nav-tab <?php echo self::TAB_ABOUT === $bmc_tab ? 'nav-tab-active' : ''; ?>"><?php esc_html_e( 'About & tools', 'builder-meta-cleanup' ); ?></a>
+			</h2>
 
-			<table class="widefat striped" style="max-width:1100px">
-				<thead>
-					<tr>
-						<th><?php esc_html_e( 'Stack', 'builder-meta-cleanup' ); ?></th>
-						<th><?php esc_html_e( 'Installed', 'builder-meta-cleanup' ); ?></th>
-						<th><?php esc_html_e( 'Active', 'builder-meta-cleanup' ); ?></th>
-						<th><?php esc_html_e( 'Postmeta rows', 'builder-meta-cleanup' ); ?></th>
-						<th><?php esc_html_e( 'Clean postmeta', 'builder-meta-cleanup' ); ?></th>
-					</tr>
-				</thead>
-				<tbody>
-				<?php foreach ( $bmc_sec['targets'] as $tid => $def ) : ?>
-					<?php
-					$installed = Builder_Meta_Cleanup_Service::is_target_installed( $tid );
-					$active    = Builder_Meta_Cleanup_Service::is_target_active( $tid );
-					$mcount = Builder_Meta_Cleanup_Service::count_target_meta( $tid );
-					?>
-					<tr>
-						<td>
-							<strong><?php echo esc_html( $def['label'] ); ?></strong>
-							<div class="bmc-meta-detail">
-								<?php
-								if ( ! empty( $def['meta'] ) ) {
-									foreach ( $def['meta'] as $m ) {
-										echo esc_html( $m['label'] );
-										echo ' — <strong>' . esc_html( (string) Builder_Meta_Cleanup_Service::count_meta_like( Builder_Meta_Cleanup_Service::meta_like( $m['like_prefix'] ) ) ) . '</strong><br />';
-									}
-								} else {
-									echo esc_html__( '—', 'builder-meta-cleanup' );
-								}
-								?>
-							</div>
-						</td>
-						<td>
-							<span class="bmc-badge <?php echo $installed ? 'bmc-yes' : 'bmc-no'; ?>">
-								<?php echo $installed ? esc_html__( 'Installed', 'builder-meta-cleanup' ) : esc_html__( 'Not installed', 'builder-meta-cleanup' ); ?>
-							</span>
-						</td>
-						<td>
-							<span class="bmc-badge <?php echo $active ? 'bmc-warn' : 'bmc-yes'; ?>">
-								<?php echo $active ? esc_html__( 'Active', 'builder-meta-cleanup' ) : esc_html__( 'Inactive', 'builder-meta-cleanup' ); ?>
-							</span>
-						</td>
-						<td><strong><?php echo esc_html( (string) $mcount ); ?></strong></td>
-						<td>
-							<?php if ( $active ) : ?>
-								<em><?php esc_html_e( 'Deactivate stack to enable.', 'builder-meta-cleanup' ); ?></em>
-							<?php elseif ( $mcount < 1 ) : ?>
-								—
-							<?php else : ?>
-								<label><input type="checkbox" name="meta_targets[]" form="bmc-form-meta" value="<?php echo esc_attr( $tid ); ?>" />
-								<?php esc_html_e( 'Delete', 'builder-meta-cleanup' ); ?></label>
-							<?php endif; ?>
-						</td>
-					</tr>
-				<?php endforeach; ?>
-				</tbody>
-			</table>
-				<?php
-			endforeach;
-			?>
-
-			<form id="bmc-form-meta" method="post" style="margin-top:12px">
-				<?php wp_nonce_field( Builder_Meta_Cleanup_Service::NONCE ); ?>
-				<input type="hidden" name="bmc_action" value="clean_meta" />
-				<?php
-				submit_button(
-					__( 'Delete selected postmeta', 'builder-meta-cleanup' ),
-					'primary',
-					'submit_meta',
-					true,
-					array(
-						'onclick' => "return confirm('" . esc_js( __( 'This cannot be undone. Continue?', 'builder-meta-cleanup' ) ) . "');",
-					)
-				);
-				?>
-			</form>
-
-			<hr style="margin:2.5em 0" />
-
-			<h2><?php esc_html_e( 'Theme / plugin options (inactive stacks only)', 'builder-meta-cleanup' ); ?></h2>
-			<p class="description"><?php esc_html_e( 'Exact wp_options rows. Checkboxes appear only when the owning stack is not active and the option exists.', 'builder-meta-cleanup' ); ?></p>
-
-			<table class="widefat striped" style="max-width:920px">
-				<thead>
-					<tr>
-						<th><?php esc_html_e( 'option_name', 'builder-meta-cleanup' ); ?></th>
-						<th><?php esc_html_e( 'Description', 'builder-meta-cleanup' ); ?></th>
-						<th><?php esc_html_e( 'Present', 'builder-meta-cleanup' ); ?></th>
-						<th><?php esc_html_e( 'Size', 'builder-meta-cleanup' ); ?></th>
-						<th><?php esc_html_e( 'Delete', 'builder-meta-cleanup' ); ?></th>
-					</tr>
-				</thead>
-				<tbody>
-				<?php foreach ( $targets as $tid => $def ) : ?>
-					<?php if ( empty( $def['options'] ) ) : ?>
-						<?php continue; ?>
-					<?php endif; ?>
-					<?php
-					$t_active = Builder_Meta_Cleanup_Service::is_target_active( $tid );
-					?>
-					<?php foreach ( $def['options'] as $opt_name => $opt_label ) : ?>
-						<?php
-						$info = Builder_Meta_Cleanup_Service::option_row_info( $opt_name );
-						$can  = ! $t_active && $info['exists'];
-						?>
-						<tr>
-							<td><code><?php echo esc_html( $opt_name ); ?></code></td>
-							<td><?php echo esc_html( $opt_label ); ?></td>
-							<td><?php echo $info['exists'] ? esc_html__( 'Yes', 'builder-meta-cleanup' ) : esc_html__( 'No', 'builder-meta-cleanup' ); ?></td>
-							<td><?php echo $info['exists'] ? esc_html( Builder_Meta_Cleanup_Service::format_bytes( $info['bytes'] ) ) : '—'; ?></td>
-							<td>
-								<?php if ( $t_active ) : ?>
-									<em><?php esc_html_e( 'Stack active', 'builder-meta-cleanup' ); ?></em>
-								<?php elseif ( ! $info['exists'] ) : ?>
-									—
-								<?php else : ?>
-									<label><input type="checkbox" name="option_names[]" form="bmc-form-options" value="<?php echo esc_attr( $opt_name ); ?>" /> <?php esc_html_e( 'Delete', 'builder-meta-cleanup' ); ?></label>
-								<?php endif; ?>
-							</td>
-						</tr>
-					<?php endforeach; ?>
-				<?php endforeach; ?>
-				</tbody>
-			</table>
-
-			<form id="bmc-form-options" method="post" style="margin-top:12px">
-				<?php wp_nonce_field( Builder_Meta_Cleanup_Service::NONCE ); ?>
-				<input type="hidden" name="bmc_action" value="clean_options" />
-				<?php
-				submit_button(
-					__( 'Delete selected options', 'builder-meta-cleanup' ),
-					'primary',
-					'submit_options',
-					true,
-					array(
-						'onclick' => "return confirm('" . esc_js( __( 'This cannot be undone. Continue?', 'builder-meta-cleanup' ) ) . "');",
-					)
-				);
-				?>
-			</form>
-
-			<hr style="margin:2.5em 0" />
-
-			<h2><?php esc_html_e( 'Pattern-based wp_options (inactive stacks only)', 'builder-meta-cleanup' ); ?></h2>
-			<p class="description"><?php esc_html_e( 'Deletes every row where option_name matches the prefix pattern (SQL LIKE). Use after removing the plugin so leftover caches or dynamic-asset rows do not accumulate. Elementor can remain active while cleaning Premium Addons rows if that plugin is gone.', 'builder-meta-cleanup' ); ?></p>
-
-			<table class="widefat striped" style="max-width:1100px">
-				<thead>
-					<tr>
-						<th><?php esc_html_e( 'Stack', 'builder-meta-cleanup' ); ?></th>
-						<th><?php esc_html_e( 'Pattern', 'builder-meta-cleanup' ); ?></th>
-						<th><?php esc_html_e( 'Rows', 'builder-meta-cleanup' ); ?></th>
-						<th><?php esc_html_e( 'Delete', 'builder-meta-cleanup' ); ?></th>
-					</tr>
-				</thead>
-				<tbody>
-				<?php foreach ( $targets as $tid => $def ) : ?>
-					<?php if ( empty( $def['options_like'] ) ) : ?>
-						<?php continue; ?>
-					<?php endif; ?>
-					<?php foreach ( $def['options_like'] as $pattern_id => $pat ) : ?>
-						<?php
-						$t_active = Builder_Meta_Cleanup_Service::is_target_active( $tid );
-						$pc       = Builder_Meta_Cleanup_Service::count_target_options_like_block( $tid, (string) $pattern_id );
-						$compound = $tid . ':' . $pattern_id;
-						?>
-						<tr>
-							<td><strong><?php echo esc_html( $def['label'] ); ?></strong></td>
-							<td><?php echo esc_html( $pat['label'] ); ?></td>
-							<td><strong><?php echo esc_html( (string) $pc ); ?></strong></td>
-							<td>
-								<?php if ( $t_active ) : ?>
-									<em><?php esc_html_e( 'Stack active', 'builder-meta-cleanup' ); ?></em>
-								<?php elseif ( $pc < 1 ) : ?>
-									—
-								<?php else : ?>
-									<label><input type="checkbox" name="options_like_keys[]" form="bmc-form-options-like" value="<?php echo esc_attr( $compound ); ?>" /> <?php esc_html_e( 'Delete', 'builder-meta-cleanup' ); ?></label>
-								<?php endif; ?>
-							</td>
-						</tr>
-					<?php endforeach; ?>
-				<?php endforeach; ?>
-				</tbody>
-			</table>
-
-			<form id="bmc-form-options-like" method="post" style="margin-top:12px">
-				<?php wp_nonce_field( Builder_Meta_Cleanup_Service::NONCE ); ?>
-				<input type="hidden" name="bmc_action" value="clean_options_like" />
-				<?php
-				submit_button(
-					__( 'Delete selected pattern options', 'builder-meta-cleanup' ),
-					'primary',
-					'submit_options_like',
-					true,
-					array(
-						'onclick' => "return confirm('" . esc_js( __( 'This cannot be undone. Continue?', 'builder-meta-cleanup' ) ) . "');",
-					)
-				);
-				?>
-			</form>
-
-			<hr style="margin:2.5em 0" />
-
-			<h2><?php esc_html_e( 'Plugin updates', 'builder-meta-cleanup' ); ?></h2>
-			<p class="description" style="max-width:900px">
+			<?php if ( self::TAB_ABOUT === $bmc_tab ) : ?>
+			<h2 style="margin-top:1.25em"><?php esc_html_e( 'Plugin updates', 'builder-meta-cleanup' ); ?></h2>
+			<p class="description" style="max-width:900px;margin-top:8px">
 				<?php esc_html_e( 'This plugin is not distributed only through WordPress.org. The plugin header sets Update URI to GitHub so core does not treat another plugin with the same folder name as this one. Choose where to look when WordPress checks for updates (Plugins screen, Dashboard → Updates, or WP-Cron).', 'builder-meta-cleanup' ); ?>
 			</p>
 			<?php
@@ -444,7 +259,7 @@ final class Builder_Meta_Cleanup_Admin {
 			$gh_info  = Builder_Meta_Cleanup_Updater::get_github_payload( false );
 			$wp_info  = Builder_Meta_Cleanup_Updater::get_wporg_payload( false );
 			?>
-			<form method="post" style="max-width:720px;margin-bottom:1.5em">
+			<form method="post" action="<?php echo esc_url( self::cleanup_tab_url( self::TAB_ABOUT ) ); ?>" style="max-width:720px;margin-bottom:1.5em">
 				<?php wp_nonce_field( Builder_Meta_Cleanup_Service::NONCE ); ?>
 				<input type="hidden" name="bmc_action" value="save_update_settings" />
 				<fieldset>
@@ -505,6 +320,7 @@ final class Builder_Meta_Cleanup_Admin {
 				<li><?php esc_html_e( 'This does not remove shortcodes or HTML inside post_content.', 'builder-meta-cleanup' ); ?></li>
 				<li><?php esc_html_e( 'Astra also registers some post meta keys without the ast- prefix (for example site-sidebar-layout). Those are not deleted by this tool.', 'builder-meta-cleanup' ); ?></li>
 				<li><?php esc_html_e( 'Extend targets via the builder_meta_cleanup_targets filter.', 'builder-meta-cleanup' ); ?></li>
+				<li><?php esc_html_e( 'This tool does not drop custom database tables some plugins create (for example Yoast indexables). It only removes matching postmeta and wp_options rows.', 'builder-meta-cleanup' ); ?></li>
 			</ul>
 
 			<h2><?php esc_html_e( 'WP-CLI', 'builder-meta-cleanup' ); ?></h2>
@@ -513,6 +329,222 @@ wp builder-meta delete --target=divi --target=elementor --yes
 wp builder-meta option-counts
 wp builder-meta options-delete --option=et_divi --yes
 wp builder-meta options-like-delete --target=premium_addons_elementor --pattern=pa_options --yes</pre>
+
+			<?php else : ?>
+
+				<?php if ( self::TAB_PLUGIN === $bmc_tab ) : ?>
+					<p class="description" style="margin-top:12px;max-width:960px">
+						<?php esc_html_e( 'These entries cover widely used plugins that often leave wp_options or postmeta behind after uninstall (reports are common for caching, SEO, backup, and slider plugins). Patterns use conservative SQL LIKE prefixes—only run cleanup after you have removed the plugin and taken a backup. Adjust Magic Page paths with the builder_meta_cleanup_plugin_paths filter.', 'builder-meta-cleanup' ); ?>
+					</p>
+				<?php endif; ?>
+
+				<h2 style="margin-top:1em"><?php esc_html_e( 'Detected stacks', 'builder-meta-cleanup' ); ?></h2>
+				<p class="description"><?php esc_html_e( '“Installed” means the theme folder or main plugin file is present. “Active” means that stack is currently in use. Cleanup is only available when Active = No.', 'builder-meta-cleanup' ); ?></p>
+
+				<table class="widefat striped" style="max-width:1100px">
+					<thead>
+						<tr>
+							<th><?php esc_html_e( 'Stack', 'builder-meta-cleanup' ); ?></th>
+							<th><?php esc_html_e( 'Installed', 'builder-meta-cleanup' ); ?></th>
+							<th><?php esc_html_e( 'Active', 'builder-meta-cleanup' ); ?></th>
+							<th><?php esc_html_e( 'Postmeta rows', 'builder-meta-cleanup' ); ?></th>
+							<th><?php esc_html_e( 'Clean postmeta', 'builder-meta-cleanup' ); ?></th>
+						</tr>
+					</thead>
+					<tbody>
+					<?php foreach ( $tab_slice as $tid => $def ) : ?>
+						<?php
+						$installed = Builder_Meta_Cleanup_Service::is_target_installed( $tid );
+						$active    = Builder_Meta_Cleanup_Service::is_target_active( $tid );
+						$mcount    = Builder_Meta_Cleanup_Service::count_target_meta( $tid );
+						?>
+						<tr>
+							<td>
+								<strong><?php echo esc_html( $def['label'] ); ?></strong>
+								<div class="bmc-meta-detail">
+									<?php
+									if ( ! empty( $def['meta'] ) ) {
+										foreach ( $def['meta'] as $m ) {
+											echo esc_html( $m['label'] );
+											echo ' — <strong>' . esc_html( (string) Builder_Meta_Cleanup_Service::count_meta_like( Builder_Meta_Cleanup_Service::meta_like( $m['like_prefix'] ) ) ) . '</strong><br />';
+										}
+									} else {
+										echo esc_html__( '—', 'builder-meta-cleanup' );
+									}
+									?>
+								</div>
+							</td>
+							<td>
+								<span class="bmc-badge <?php echo $installed ? 'bmc-yes' : 'bmc-no'; ?>">
+									<?php echo $installed ? esc_html__( 'Installed', 'builder-meta-cleanup' ) : esc_html__( 'Not installed', 'builder-meta-cleanup' ); ?>
+								</span>
+							</td>
+							<td>
+								<span class="bmc-badge <?php echo $active ? 'bmc-warn' : 'bmc-yes'; ?>">
+									<?php echo $active ? esc_html__( 'Active', 'builder-meta-cleanup' ) : esc_html__( 'Inactive', 'builder-meta-cleanup' ); ?>
+								</span>
+							</td>
+							<td><strong><?php echo esc_html( (string) $mcount ); ?></strong></td>
+							<td>
+								<?php if ( $active ) : ?>
+									<em><?php esc_html_e( 'Deactivate stack to enable.', 'builder-meta-cleanup' ); ?></em>
+								<?php elseif ( $mcount < 1 ) : ?>
+									—
+								<?php else : ?>
+									<label><input type="checkbox" name="meta_targets[]" form="<?php echo esc_attr( 'bmc-form-meta-' . $form_slug ); ?>" value="<?php echo esc_attr( $tid ); ?>" />
+									<?php esc_html_e( 'Delete', 'builder-meta-cleanup' ); ?></label>
+								<?php endif; ?>
+							</td>
+						</tr>
+					<?php endforeach; ?>
+					</tbody>
+				</table>
+
+				<form id="<?php echo esc_attr( 'bmc-form-meta-' . $form_slug ); ?>" method="post" action="<?php echo esc_url( $tab_action ); ?>" style="margin-top:12px">
+					<?php wp_nonce_field( Builder_Meta_Cleanup_Service::NONCE ); ?>
+					<input type="hidden" name="bmc_action" value="clean_meta" />
+					<?php
+					submit_button(
+						__( 'Delete selected postmeta', 'builder-meta-cleanup' ),
+						'primary',
+						'submit_meta_' . $form_slug,
+						true,
+						array(
+							'onclick' => "return confirm('" . esc_js( __( 'This cannot be undone. Continue?', 'builder-meta-cleanup' ) ) . "');",
+						)
+					);
+					?>
+				</form>
+
+				<hr style="margin:2.5em 0" />
+
+				<h2><?php esc_html_e( 'Exact wp_options (inactive only)', 'builder-meta-cleanup' ); ?></h2>
+				<p class="description"><?php esc_html_e( 'Named option rows for targets on this tab. Checkboxes appear only when the owning stack is inactive and the option exists.', 'builder-meta-cleanup' ); ?></p>
+
+				<table class="widefat striped" style="max-width:920px">
+					<thead>
+						<tr>
+							<th><?php esc_html_e( 'option_name', 'builder-meta-cleanup' ); ?></th>
+							<th><?php esc_html_e( 'Description', 'builder-meta-cleanup' ); ?></th>
+							<th><?php esc_html_e( 'Present', 'builder-meta-cleanup' ); ?></th>
+							<th><?php esc_html_e( 'Size', 'builder-meta-cleanup' ); ?></th>
+							<th><?php esc_html_e( 'Delete', 'builder-meta-cleanup' ); ?></th>
+						</tr>
+					</thead>
+					<tbody>
+					<?php foreach ( $targets as $tid => $def ) : ?>
+						<?php if ( self::target_ui_tab( $def ) !== $bmc_tab ) : ?>
+							<?php continue; ?>
+						<?php endif; ?>
+						<?php if ( empty( $def['options'] ) ) : ?>
+							<?php continue; ?>
+						<?php endif; ?>
+						<?php
+						$t_active = Builder_Meta_Cleanup_Service::is_target_active( $tid );
+						?>
+						<?php foreach ( $def['options'] as $opt_name => $opt_label ) : ?>
+							<?php $info = Builder_Meta_Cleanup_Service::option_row_info( $opt_name ); ?>
+							<tr>
+								<td><code><?php echo esc_html( $opt_name ); ?></code></td>
+								<td><?php echo esc_html( $opt_label ); ?></td>
+								<td><?php echo $info['exists'] ? esc_html__( 'Yes', 'builder-meta-cleanup' ) : esc_html__( 'No', 'builder-meta-cleanup' ); ?></td>
+								<td><?php echo $info['exists'] ? esc_html( Builder_Meta_Cleanup_Service::format_bytes( $info['bytes'] ) ) : '—'; ?></td>
+								<td>
+									<?php if ( $t_active ) : ?>
+										<em><?php esc_html_e( 'Stack active', 'builder-meta-cleanup' ); ?></em>
+									<?php elseif ( ! $info['exists'] ) : ?>
+										—
+									<?php else : ?>
+										<label><input type="checkbox" name="option_names[]" form="<?php echo esc_attr( 'bmc-form-options-' . $form_slug ); ?>" value="<?php echo esc_attr( $opt_name ); ?>" /> <?php esc_html_e( 'Delete', 'builder-meta-cleanup' ); ?></label>
+									<?php endif; ?>
+								</td>
+							</tr>
+						<?php endforeach; ?>
+					<?php endforeach; ?>
+					</tbody>
+				</table>
+
+				<form id="<?php echo esc_attr( 'bmc-form-options-' . $form_slug ); ?>" method="post" action="<?php echo esc_url( $tab_action ); ?>" style="margin-top:12px">
+					<?php wp_nonce_field( Builder_Meta_Cleanup_Service::NONCE ); ?>
+					<input type="hidden" name="bmc_action" value="clean_options" />
+					<?php
+					submit_button(
+						__( 'Delete selected options', 'builder-meta-cleanup' ),
+						'primary',
+						'submit_options_' . $form_slug,
+						true,
+						array(
+							'onclick' => "return confirm('" . esc_js( __( 'This cannot be undone. Continue?', 'builder-meta-cleanup' ) ) . "');",
+						)
+					);
+					?>
+				</form>
+
+				<hr style="margin:2.5em 0" />
+
+				<h2><?php esc_html_e( 'Pattern-based wp_options (inactive only)', 'builder-meta-cleanup' ); ?></h2>
+				<p class="description"><?php esc_html_e( 'Deletes rows where option_name matches the pattern (SQL LIKE). Use after the plugin or theme is removed.', 'builder-meta-cleanup' ); ?></p>
+
+				<table class="widefat striped" style="max-width:1100px">
+					<thead>
+						<tr>
+							<th><?php esc_html_e( 'Stack', 'builder-meta-cleanup' ); ?></th>
+							<th><?php esc_html_e( 'Pattern', 'builder-meta-cleanup' ); ?></th>
+							<th><?php esc_html_e( 'Rows', 'builder-meta-cleanup' ); ?></th>
+							<th><?php esc_html_e( 'Delete', 'builder-meta-cleanup' ); ?></th>
+						</tr>
+					</thead>
+					<tbody>
+					<?php foreach ( $targets as $tid => $def ) : ?>
+						<?php if ( self::target_ui_tab( $def ) !== $bmc_tab ) : ?>
+							<?php continue; ?>
+						<?php endif; ?>
+						<?php if ( empty( $def['options_like'] ) ) : ?>
+							<?php continue; ?>
+						<?php endif; ?>
+						<?php foreach ( $def['options_like'] as $pattern_id => $pat ) : ?>
+							<?php
+							$t_active = Builder_Meta_Cleanup_Service::is_target_active( $tid );
+							$pc       = Builder_Meta_Cleanup_Service::count_target_options_like_block( $tid, (string) $pattern_id );
+							$compound = $tid . ':' . $pattern_id;
+							?>
+							<tr>
+								<td><strong><?php echo esc_html( $def['label'] ); ?></strong></td>
+								<td><?php echo esc_html( $pat['label'] ); ?></td>
+								<td><strong><?php echo esc_html( (string) $pc ); ?></strong></td>
+								<td>
+									<?php if ( $t_active ) : ?>
+										<em><?php esc_html_e( 'Stack active', 'builder-meta-cleanup' ); ?></em>
+									<?php elseif ( $pc < 1 ) : ?>
+										—
+									<?php else : ?>
+										<label><input type="checkbox" name="options_like_keys[]" form="<?php echo esc_attr( 'bmc-form-options-like-' . $form_slug ); ?>" value="<?php echo esc_attr( $compound ); ?>" /> <?php esc_html_e( 'Delete', 'builder-meta-cleanup' ); ?></label>
+									<?php endif; ?>
+								</td>
+							</tr>
+						<?php endforeach; ?>
+					<?php endforeach; ?>
+					</tbody>
+				</table>
+
+				<form id="<?php echo esc_attr( 'bmc-form-options-like-' . $form_slug ); ?>" method="post" action="<?php echo esc_url( $tab_action ); ?>" style="margin-top:12px">
+					<?php wp_nonce_field( Builder_Meta_Cleanup_Service::NONCE ); ?>
+					<input type="hidden" name="bmc_action" value="clean_options_like" />
+					<?php
+					submit_button(
+						__( 'Delete selected pattern options', 'builder-meta-cleanup' ),
+						'primary',
+						'submit_options_like_' . $form_slug,
+						true,
+						array(
+							'onclick' => "return confirm('" . esc_js( __( 'This cannot be undone. Continue?', 'builder-meta-cleanup' ) ) . "');",
+						)
+					);
+					?>
+				</form>
+
+			<?php endif; ?>
+
 		</div>
 		<?php
 	}

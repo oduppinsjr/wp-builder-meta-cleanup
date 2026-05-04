@@ -5,12 +5,14 @@ Detect major page builders and companion plugins, show install/active state, and
 ## Compatibility
 
 - **Tested up to:** WordPress 6.7  
-- **Stable tag:** 2.1.0  
+- **Stable tag:** 2.2.0  
 - **License:** GPLv2 or later
 
 Full WordPress.org–style readme (headers, changelog, FAQ): see **readme.txt** in this repository.
 
 Repository: [github.com/oduppinsjr/wp-builder-meta-cleanup](https://github.com/oduppinsjr/wp-builder-meta-cleanup)
+
+The admin screen uses **tabs**: Themes & frameworks, Page builders, Plugins (preset targets for common plugins that leave cruft), and About & tools (updates / WP-CLI).
 
 ## Repository documentation
 
@@ -22,6 +24,7 @@ Repository: [github.com/oduppinsjr/wp-builder-meta-cleanup](https://github.com/o
 | [LICENSE.md](LICENSE.md) | License statement (GPL-2.0-or-later); see also `LICENSE` at repo root. |
 | [SECURITY.md](SECURITY.md) | How to report vulnerabilities privately. |
 | [SUPPORT.md](SUPPORT.md) | Where to get help and file issues. |
+| [PROJECT_MEMORY.md](PROJECT_MEMORY.md) | Maintainer/agent notes: codebase map, version bump, Git release flow. |
 
 ## Supported stacks (postmeta patterns)
 

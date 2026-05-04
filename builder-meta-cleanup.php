@@ -3,7 +3,7 @@
  * Plugin Name:       Builder Meta Cleanup
  * Plugin URI:        https://github.com/oduppinsjr/wp-builder-meta-cleanup
  * Description:       Detect major page builders and remove orphaned postmeta / allowlisted options only when that stack is not active.
- * Version:           2.1.0
+ * Version:           2.2.0
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Update URI:        https://github.com/oduppinsjr/wp-builder-meta-cleanup
@@ -20,7 +20,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'BUILDER_META_CLEANUP_VERSION', '2.1.0' );
+define( 'BUILDER_META_CLEANUP_VERSION', '2.2.0' );
 define( 'BUILDER_META_CLEANUP_FILE', __FILE__ );
 define( 'BUILDER_META_CLEANUP_DIR', plugin_dir_path( __FILE__ ) );
 

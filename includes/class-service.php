@@ -15,16 +15,26 @@ final class Builder_Meta_Cleanup_Service {
 	public const NONCE = 'builder_meta_cleanup_action';
 
 	/**
+	 * @var array<string, array<string, mixed>>|null
+	 */
+	private static $targets_cache = null;
+
+	/**
 	 * Target definitions: meta SQL patterns, optional exact wp_options keys, and optional wp_options LIKE patterns.
 	 * Cleanup is only offered when the stack is not active (see is_target_active).
 	 *
 	 * @return array<string, array<string, mixed>>
 	 */
 	public static function get_targets(): array {
+		if ( null !== self::$targets_cache ) {
+			return self::$targets_cache;
+		}
+
 		$targets = array(
 			'elementor'   => array(
-				'label' => __( 'Elementor', 'builder-meta-cleanup' ),
-				'meta'  => array(
+				'label'  => __( 'Elementor', 'builder-meta-cleanup' ),
+				'ui_tab' => 'page_builder',
+				'meta'   => array(
 					'elementor' => array(
 						'label'       => __( 'meta_key LIKE _elementor_%', 'builder-meta-cleanup' ),
 						'like_prefix' => '_elementor_',
@@ -36,8 +46,9 @@ final class Builder_Meta_Cleanup_Service {
 				),
 			),
 			'divi'        => array(
-				'label' => __( 'Divi / Extra (Elegant Themes)', 'builder-meta-cleanup' ),
-				'meta'  => array(
+				'label'  => __( 'Divi / Extra (Elegant Themes)', 'builder-meta-cleanup' ),
+				'ui_tab' => 'page_builder',
+				'meta'   => array(
 					'divi_private' => array(
 						'label'       => __( 'meta_key LIKE _et_pb_%', 'builder-meta-cleanup' ),
 						'like_prefix' => '_et_pb_',
@@ -57,8 +68,9 @@ final class Builder_Meta_Cleanup_Service {
 				),
 			),
 			'beaver'      => array(
-				'label' => __( 'Beaver Builder', 'builder-meta-cleanup' ),
-				'meta'  => array(
+				'label'  => __( 'Beaver Builder', 'builder-meta-cleanup' ),
+				'ui_tab' => 'page_builder',
+				'meta'   => array(
 					'beaver' => array(
 						'label'       => __( 'meta_key LIKE _fl_builder_%', 'builder-meta-cleanup' ),
 						'like_prefix' => '_fl_builder_',
@@ -66,8 +78,9 @@ final class Builder_Meta_Cleanup_Service {
 				),
 			),
 			'bricks'      => array(
-				'label' => __( 'Bricks', 'builder-meta-cleanup' ),
-				'meta'  => array(
+				'label'  => __( 'Bricks', 'builder-meta-cleanup' ),
+				'ui_tab' => 'page_builder',
+				'meta'   => array(
 					'bricks' => array(
 						'label'       => __( 'meta_key LIKE _bricks_%', 'builder-meta-cleanup' ),
 						'like_prefix' => '_bricks_',
@@ -75,8 +88,9 @@ final class Builder_Meta_Cleanup_Service {
 				),
 			),
 			'seedprod'    => array(
-				'label' => __( 'SeedProd', 'builder-meta-cleanup' ),
-				'meta'  => array(
+				'label'  => __( 'SeedProd', 'builder-meta-cleanup' ),
+				'ui_tab' => 'page_builder',
+				'meta'   => array(
 					'seedprod_u' => array(
 						'label'       => __( 'meta_key LIKE _seedprod_%', 'builder-meta-cleanup' ),
 						'like_prefix' => '_seedprod_',
@@ -88,8 +102,9 @@ final class Builder_Meta_Cleanup_Service {
 				),
 			),
 			'hello'       => array(
-				'label' => __( 'Hello Elementor', 'builder-meta-cleanup' ),
-				'meta'  => array(
+				'label'  => __( 'Hello Elementor', 'builder-meta-cleanup' ),
+				'ui_tab' => 'theme',
+				'meta'   => array(
 					'hello' => array(
 						'label'       => __( 'meta_key LIKE _hello_%', 'builder-meta-cleanup' ),
 						'like_prefix' => '_hello_',
@@ -97,8 +112,9 @@ final class Builder_Meta_Cleanup_Service {
 				),
 			),
 			'betheme'     => array(
-				'label' => __( 'BeTheme / Muffin', 'builder-meta-cleanup' ),
-				'meta'  => array(
+				'label'  => __( 'BeTheme / Muffin', 'builder-meta-cleanup' ),
+				'ui_tab' => 'theme',
+				'meta'   => array(
 					'mfn' => array(
 						'label'       => __( 'meta_key LIKE mfn-%', 'builder-meta-cleanup' ),
 						'like_prefix' => 'mfn-',
@@ -110,8 +126,9 @@ final class Builder_Meta_Cleanup_Service {
 				),
 			),
 			'astra'       => array(
-				'label' => __( 'Astra', 'builder-meta-cleanup' ),
-				'meta'  => array(
+				'label'  => __( 'Astra', 'builder-meta-cleanup' ),
+				'ui_tab' => 'theme',
+				'meta'   => array(
 					'astra'         => array(
 						'label'       => __( 'meta_key LIKE ast-%', 'builder-meta-cleanup' ),
 						'like_prefix' => 'ast-',
@@ -128,7 +145,7 @@ final class Builder_Meta_Cleanup_Service {
 			),
 			'fusion'                   => array(
 				'label'    => __( 'Fusion / Avada Builder', 'builder-meta-cleanup' ),
-				'category' => 'builder',
+				'ui_tab'   => 'theme',
 				'meta'     => array(
 					'fusion_root' => array(
 						'label'       => __( 'meta_key LIKE _fusion%', 'builder-meta-cleanup' ),
@@ -143,9 +160,13 @@ final class Builder_Meta_Cleanup_Service {
 				),
 			),
 			'premium_addons_elementor' => array(
-				'label'    => __( 'Premium Addons for Elementor', 'builder-meta-cleanup' ),
-				'category' => 'addon',
-				'meta'     => array(),
+				'label'        => __( 'Premium Addons for Elementor', 'builder-meta-cleanup' ),
+				'ui_tab'       => 'plugin',
+				'plugin_paths' => array(
+					'premium-addons-for-elementor/premium-addons-for-elementor.php',
+					'premium-addons-pro/premium-addons-pro-for-elementor.php',
+				),
+				'meta'         => array(),
 				'options_like' => array(
 					'pa_options' => array(
 						'label'       => __( 'wp_options.option_name LIKE PA_% (dynamic assets / caches)', 'builder-meta-cleanup' ),
@@ -154,9 +175,14 @@ final class Builder_Meta_Cleanup_Service {
 				),
 			),
 			'essential_addons_elementor' => array(
-				'label'    => __( 'Essential Addons for Elementor', 'builder-meta-cleanup' ),
-				'category' => 'addon',
-				'meta'     => array(),
+				'label'        => __( 'Essential Addons for Elementor', 'builder-meta-cleanup' ),
+				'ui_tab'       => 'plugin',
+				'plugin_paths' => array(
+					'essential-addons-for-elementor/essential-addons-for-elementor.php',
+					'essential-addons-elementor-pro/essential-addons-elementor-pro.php',
+					'essential-addons-for-elementor-pro/essential-addons-for-elementor-pro.php',
+				),
+				'meta'         => array(),
 				'options_like' => array(
 					'eael_options' => array(
 						'label'       => __( 'wp_options.option_name LIKE eael_%', 'builder-meta-cleanup' ),
@@ -165,9 +191,13 @@ final class Builder_Meta_Cleanup_Service {
 				),
 			),
 			'ultimate_addons_elementor' => array(
-				'label'    => __( 'Ultimate Addons for Elementor', 'builder-meta-cleanup' ),
-				'category' => 'addon',
-				'meta'     => array(),
+				'label'        => __( 'Ultimate Addons for Elementor', 'builder-meta-cleanup' ),
+				'ui_tab'       => 'plugin',
+				'plugin_paths' => array(
+					'ultimate-elementor/ultimate-elementor.php',
+					'ultimate-elementor-pro/ultimate-elementor-pro.php',
+				),
+				'meta'         => array(),
 				'options_like' => array(
 					'uael_options' => array(
 						'label'       => __( 'wp_options.option_name LIKE uael_%', 'builder-meta-cleanup' ),
@@ -177,12 +207,29 @@ final class Builder_Meta_Cleanup_Service {
 			),
 		);
 
+		$cruft_file = BUILDER_META_CLEANUP_DIR . 'includes/data-plugin-cruft-targets.php';
+		if ( file_exists( $cruft_file ) ) {
+			$cruft_included = include $cruft_file;
+			if ( is_array( $cruft_included ) ) {
+				$targets = array_merge( $targets, $cruft_included );
+			}
+		}
+
+		foreach ( $targets as $tid => &$target_def ) {
+			if ( ! empty( $target_def['plugin_paths'] ) && is_array( $target_def['plugin_paths'] ) ) {
+				$target_def['plugin_paths'] = apply_filters( 'builder_meta_cleanup_plugin_paths', $target_def['plugin_paths'], (string) $tid );
+			}
+		}
+		unset( $target_def );
+
 		/**
 		 * Filter full target registry (add targets, meta patterns, or option rows).
 		 *
 		 * @param array<string, array<string, mixed>> $targets
 		 */
-		return apply_filters( 'builder_meta_cleanup_targets', $targets );
+		self::$targets_cache = apply_filters( 'builder_meta_cleanup_targets', $targets );
+
+		return self::$targets_cache;
 	}
 
 	public static function load_plugin_functions(): void {
@@ -226,6 +273,11 @@ final class Builder_Meta_Cleanup_Service {
 
 	public static function is_target_active( string $target_id ): bool {
 		self::load_plugin_functions();
+
+		$registry = self::get_targets();
+		if ( ! empty( $registry[ $target_id ]['plugin_paths'] ) && is_array( $registry[ $target_id ]['plugin_paths'] ) ) {
+			return self::is_any_plugin_active( $registry[ $target_id ]['plugin_paths'] );
+		}
 
 		switch ( $target_id ) {
 			case 'elementor':
@@ -289,31 +341,6 @@ final class Builder_Meta_Cleanup_Service {
 					)
 				);
 
-			case 'premium_addons_elementor':
-				return self::is_any_plugin_active(
-					array(
-						'premium-addons-for-elementor/premium-addons-for-elementor.php',
-						'premium-addons-pro/premium-addons-pro-for-elementor.php',
-					)
-				);
-
-			case 'essential_addons_elementor':
-				return self::is_any_plugin_active(
-					array(
-						'essential-addons-for-elementor/essential-addons-for-elementor.php',
-						'essential-addons-elementor-pro/essential-addons-elementor-pro.php',
-						'essential-addons-for-elementor-pro/essential-addons-for-elementor-pro.php',
-					)
-				);
-
-			case 'ultimate_addons_elementor':
-				return self::is_any_plugin_active(
-					array(
-						'ultimate-elementor/ultimate-elementor.php',
-						'ultimate-elementor-pro/ultimate-elementor-pro.php',
-					)
-				);
-
 			default:
 				return (bool) apply_filters( 'builder_meta_cleanup_is_target_active', false, $target_id );
 		}
@@ -321,6 +348,11 @@ final class Builder_Meta_Cleanup_Service {
 
 	public static function is_target_installed( string $target_id ): bool {
 		self::load_plugin_functions();
+
+		$registry = self::get_targets();
+		if ( ! empty( $registry[ $target_id ]['plugin_paths'] ) && is_array( $registry[ $target_id ]['plugin_paths'] ) ) {
+			return self::is_any_plugin_present( $registry[ $target_id ]['plugin_paths'] );
+		}
 
 		switch ( $target_id ) {
 			case 'elementor':
@@ -370,31 +402,6 @@ final class Builder_Meta_Cleanup_Service {
 					array(
 						'fusion-core/fusion-core.php',
 						'fusion-builder/fusion-builder.php',
-					)
-				);
-
-			case 'premium_addons_elementor':
-				return self::is_any_plugin_present(
-					array(
-						'premium-addons-for-elementor/premium-addons-for-elementor.php',
-						'premium-addons-pro/premium-addons-pro-for-elementor.php',
-					)
-				);
-
-			case 'essential_addons_elementor':
-				return self::is_any_plugin_present(
-					array(
-						'essential-addons-for-elementor/essential-addons-for-elementor.php',
-						'essential-addons-elementor-pro/essential-addons-elementor-pro.php',
-						'essential-addons-for-elementor-pro/essential-addons-for-elementor-pro.php',
-					)
-				);
-
-			case 'ultimate_addons_elementor':
-				return self::is_any_plugin_present(
-					array(
-						'ultimate-elementor/ultimate-elementor.php',
-						'ultimate-elementor-pro/ultimate-elementor-pro.php',
 					)
 				);
 
